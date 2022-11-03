@@ -50,6 +50,14 @@ class Contents {
   _steps = {}
   _currentStep = null
   _lastSubstepId = null
+  _mobileBlockHtml = '<div class="post-contents__mobile-bar">'
+		+ '<div class="post-contents__mobile-title">Навигация по статье</div>'
+		+ '<div class="post-contents__mobile-active-step"></div>'
+		+ '<span class="post-contents__mobile-bar-icon">'
+    +'<svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1.22704 3.96983C1.36768 3.82923 1.55841 3.75024 1.75729 3.75024C1.95616 3.75024 2.14689 3.82923 2.28754 3.96983L6.00004 7.68233L9.71254 3.96983C9.85399 3.83322 10.0434 3.75762 10.2401 3.75933C10.4367 3.76104 10.6248 3.83991 10.7639 3.97897C10.903 4.11803 10.9818 4.30614 10.9835 4.50278C10.9853 4.69943 10.9097 4.88888 10.773 5.03033L6.53029 9.27308C6.38964 9.41369 6.19891 9.49267 6.00004 9.49267C5.80116 9.49267 5.61043 9.41369 5.46979 9.27308L1.22704 5.03033C1.08643 4.88969 1.00745 4.69896 1.00745 4.50008C1.00745 4.30121 1.08643 4.11048 1.22704 3.96983Z" fill="currentColor"/></svg>'
+    +'</span>'
+		+ '<span class="post-contents__progress post-contents__progress_mobile"><span class="post-contents__progress-bar"></span></span>'
+		+ '</div>';
 
   constructor(contentsObj, contentsBlock) {
     this.contentsObj = contentsObj
@@ -58,6 +66,7 @@ class Contents {
     
     this.initSteps()
     this.toggleItemsState()
+    this.initMobileBlock();
     this.initEventListeners()
   }
 
@@ -73,7 +82,7 @@ class Contents {
 				const target = document.querySelector(`[data-step-id="${stepId}"]`);
 
         if (target) {
-          const position = target.getBoundingClientRect().top;
+          let position = target.getBoundingClientRect().top;
 
           if (self.contentsBlock.classList.contains('post-contents_fixed')) {
             position -= 55;
@@ -85,7 +94,17 @@ class Contents {
           });
         }
       }
+
+      if (eTarget.closest('.post-contents__mobile-bar')) {
+				self.toggleMobileMenu();
+      }
     })
+
+    window.addEventListener('resize', function () {
+      self.initSteps()
+      self.toggleItemsState()
+      self.initMobileBlock();
+    });
 
     window.addEventListener('scroll', function () {
       self.toggleItemsState();
@@ -195,8 +214,16 @@ class Contents {
   }
 
   changeProgressBar(stepId, stepProps, currentPos) {
+    const self = this
     const {start,end,percent,contentsItem} = stepProps;
-    const progressBlock = contentsItem.querySelector(`[data-progress-step-id="${stepId}"]`);
+    let progressBlock = contentsItem.querySelector(`[data-progress-step-id="${stepId}"]`);
+
+    if (window.innerWidth <= 901 && self.contentsBlock.querySelector('.post-contents__mobile-bar')) {
+      progressBlock = self.contentsBlock.querySelector(`.post-contents__progress_mobile[data-progress-step-id="${stepId}"]`);
+    }
+
+    if (!progressBlock) return false
+
     const progressBar = progressBlock.querySelector('.post-contents__progress-bar');
     let currentProgress = Math.ceil((currentPos - start) / percent);
 
@@ -205,6 +232,73 @@ class Contents {
     }
 
     progressBar.style['width'] = `${currentProgress}%`;
+  }
+
+  initMobileBlock() {
+    const self = this
+    const parent = self.contentsBlock.parentElement;
+    if (window.innerWidth <= 901) {
+      const contentsHeight = self.contentsBlock.clientHeight;
+      const topPosition = window.pageYOffset + self.contentsBlock.getBoundingClientRect().top;
+      const bottomPosition = topPosition + contentsHeight;
+
+
+      self.toggleMobileBlock(bottomPosition, parent, contentsHeight);
+      window.addEventListener('scroll', function () {
+        self.toggleMobileMenu(false);
+        self.toggleMobileBlock(bottomPosition, parent, contentsHeight);
+      });
+    } else {
+      parent.style.paddingTop = 0;
+      self.contentsBlock.classList.remove('post-contents_fixed');
+    }
+  }
+
+  toggleMobileBlock(bottomPosition, parent, padding) {
+    const self = this
+    const toToggle = window.pageYOffset > bottomPosition;
+
+    let mobileBlock = self.contentsBlock.querySelector('.post-contents__mobile-bar');
+
+    if (toToggle && self._currentStep !== null) {
+      if (!mobileBlock) {
+        const tmp = document.createElement('div');
+        tmp.innerHTML = self._mobileBlockHtml;
+        mobileBlock = tmp.querySelector('.post-contents__mobile-bar')
+        self.contentsBlock.prepend(mobileBlock);
+      }
+
+      const currentStep = self._steps[self._currentStep];
+      mobileBlock.querySelector('.post-contents__mobile-active-step').innerText = currentStep.name;
+      mobileBlock.querySelector('.post-contents__progress').setAttribute('data-progress-step-id', self._currentStep);
+      self.toggleItemsState();
+    } else if (mobileBlock) {
+      mobileBlock.remove();
+    }
+
+    parent.style.paddingTop = `${toToggle ? padding : 0}px`;
+    self.toggleFixedMenu(!toToggle);
+    self.contentsBlock.classList.toggle('post-contents_fixed', toToggle);
+  }
+
+  toggleMobileMenu(toToggle = undefined) {
+    const self = this
+    const mobileBar = self.contentsBlock.querySelector('.post-contents__mobile-bar')
+
+    if (mobileBar) {
+      mobileBar.classList.toggle('post-contents__mobile-bar_active', toToggle);
+      const isActive = mobileBar.classList.contains('post-contents__mobile-bar_active');
+
+      self.toggleFixedMenu(isActive, isActive);
+    }
+  }
+
+  toggleFixedMenu(toToggle = true, lockPage = false) {
+    const self = this
+    const contentsMenu = self.contentsBlock.querySelector('.post-contents__list_root');
+
+    document.body.style.overflowY = lockPage ? 'hidden' : 'auto'
+    contentsMenu.style.display = toToggle ? 'block' : 'none'
   }
 
   createContentsBlock(contentsObj) {

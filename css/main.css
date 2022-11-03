@@ -128,8 +128,7 @@ h5,
 }
 
 .article__content {
-  display: flex;
-  flex-direction: row-reverse;
+  margin-top: 20px;
 }
 
 .article__sidebar {
@@ -173,6 +172,12 @@ h5,
     font-size: 36px;
     line-height: 48px;
     margin-bottom: 16px;
+  }
+
+  .article__content {
+    display: flex;
+    flex-direction: row-reverse;
+    margin-top: 30px;
   }
 
   .article__sidebar {
